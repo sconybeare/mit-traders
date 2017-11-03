@@ -33,6 +33,7 @@ class RateLimiter:
         return self.quota
 
     # borrows n from quota if possible, returns boolean success
+    # TODO restore from queue before checking for exception case
     def borrow(self, n):
         ts = clock.monotonic()
         if n > self.quota:
@@ -84,12 +85,6 @@ class Scheduler:
 
     def run(self, order):
         self.__run_next_job(order)
-      #  while True:
-      #      if self.__flush:
-      #          self.__flush = False
-      #          break
-      #      if not self.__run_next_job(order):
-      #          break
 
 
 class OrderWrapper:

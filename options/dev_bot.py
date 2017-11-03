@@ -62,7 +62,6 @@ def periodicCallback(order):
     scheduler.run(order_wrapper.wrap(order))
 
 if __name__ == '__main__':
-    print 'hello, world!'
     t.onMarketUpdate = onMarketUpdate
     t.onTraderUpdate = onTraderUpdate
     t.onAckRegister = onAckRegister

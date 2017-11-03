@@ -22,8 +22,8 @@ class PCP_Bot:
         self.staleness_cutoff = config.staleness_cutoff_seconds
         self.size_factor = config.size_factor
         self.min_edge = config.min_edge
+
         self.books = {}
-        self.my_orders = {}
         self.last_update = {}
         self.recently_updated = collections.deque()
 

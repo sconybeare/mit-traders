@@ -1,4 +1,3 @@
-# TODO fix borrows to use the semantics of PCP_Bot.addTrade and the wrapped order quota reservations
 import ticker_lib
 import copy
 import collections
@@ -22,7 +21,7 @@ class Generic_Bot:
         self.order_token_to_id = {} # dict that maps tokens to oids
         self.order_id_to_token = {}
         self.created_orders = {} # dict that maps tokens to order records
-        self.size_left = {} # dict that maps orders to their remaining size
+        self.size_left = {} # dict that maps order tokens to their remaining size
 
         # these are all sets of tokens
         self.inflight_cancels = set() 
@@ -30,6 +29,14 @@ class Generic_Bot:
         self.retired_orders = set()
 
         self.cancel_retry_period = 0.25
+
+        self.cash = {'USD' : 0}
+        self.positions = {}
+        self.pnl = {'USD' : 0}
+
+        self.total_fees = 0
+        self.total_fines = 0
+        self.total_rebates = 0
 
     def addTrade(self, order, ticker, isBuy, size, price):
         order.activate()
@@ -53,7 +60,7 @@ class Generic_Bot:
 
     def gen_token(self):
         self.token_state += 1
-        return self.token_prefix + ':PCP_Bot_token:' + str(self.token_state)
+        return self.token_prefix + str(self.token_state)
 
     def onAckRegister(self, internal_msg, order):
         for ticker in internal_msg['market_states']:
@@ -87,14 +94,19 @@ class Generic_Bot:
         self.market_books[ticker] = copy.deepcopy(market_state)
         self.guess_books[ticker] = copy.deepcopy(market_state)
 
+    # TODO: track positions in real time
+    # TODO: monitor open_orders tracking error
     def onTraderUpdate(self, internal_msg, order):
-        print 'onTraderUpdate'
-        # TODO: track positions
-        pass
+        trader_state = internal_msg['trader_state']
+        self.positions   = copy.deepcopy(trader_state['positions'])
+        self.open_orders = copy.deepcopy(trader_state['open_orders'])
+        self.pnl         = copy.deepcopy(trader_state['pnl'])
+        self.total_fees = 0
+        self.total_fines = 0
+        self.total_rebates = 0
 
     # TODO: use the time field to avoid applying trades to the guess books if the trades
     # are older than the last book update
-
     def onTrade(self, internal_msg, order):
         for trade in internal_msg['trades']:
             ticker = trade['ticker']
