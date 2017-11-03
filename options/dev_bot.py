@@ -5,46 +5,68 @@ import sys
 import csv
 import json
 
+# Local imports
+import pcp_bot
+import utils
+
 t = tt.TradersBot(host='127.0.0.1', id='trader0', password='trader0')
-tick = 0
-strikes = range(80, 121)
-option_dirs = ['P', 'C']
 
-# Internally, we treat options as tuples
-option_tickers = {(K, d) : 'T' + str(K) + d for K in strikes for d in option_dirs}
-rev_option_tickers = {'T' + str(K) + d : (K, d) for K in strikes for d in option_dirs}
+rate_limiter = utils.RateLimiter(25, 1.5) # 1.1 second fudge factor, since our timing is different from exchange's
+scheduler = utils.Scheduler()
 
-futures = 'TMXFUT'
+order_wrapper = utils.OrderWrapper(rate_limiter)
 
-for k in option_tickers:
-    assert rev_option_tickers[option_tickers[k]] == k
+pcp_bot = pcp_bot.PCP_Bot(rate_limiter, scheduler)
 
-for k in rev_option_tickers:
-    assert option_tickers[rev_option_tickers[k]] == k
+strats = [pcp_bot]
 
-filename = sys.argv[1]
-outfile = open(filename, 'w')
+@order_wrapper.dec
+def onAckRegister(msg, order):
+    for ticker in msg['market_states']:
+        utils.convert_market_state(msg['market_states'][ticker])
+    for s in strats:
+        s.onAckRegister(msg, order)
 
-msgs = []
+@order_wrapper.dec
+def onMarketUpdate(msg, order):
+    try:
+        assert 'market_state' in msg
+        utils.convert_market_state(msg['market_state'])
+    except:
+        print 'MESSAGE NOT CONTAINING \'market_state\''
+        print msg
+        raise
 
-# The goal here is to get price tick data for the case.
-def f(msg, order):
-    global tick
-    msg['tick'] = tick
-    json.dump(msg, outfile)
-    tick += 1
+    for s in strats:
+        s.onMarketUpdate(msg, order)
 
-    # global tick
-    # quantity = 500
-    # idx = 'USDCAD'
-    # side = get_side()
-    # if side == 'buy':
-    #     order.addBuy(idx, quantity=quantity, price=0.99)
-    # else:
-    #     order.addSell(idx, quantity=quantity, price=1.01)
+@order_wrapper.dec
+def onTraderUpdate(msg, order):
+    for s in strats:
+        s.onTraderUpdate(msg, order)
 
-    # tick += 1
-    # print('Traded')
+@order_wrapper.dec
+def onTrade(msg, order):
+    print msg
+    for s in strats:
+        s.onTrade(msg, order)
 
-t.onMarketUpdate = f
-t.run()
+@order_wrapper.dec
+def onAckModifyOrders(msg, order):
+    print msg
+    for s in strats:
+        s.onAckModifyOrders(msg, order)
+
+def periodicCallback(order):
+    print rate_limiter.amount_available()
+    scheduler.run(order_wrapper.wrap(order))
+
+if __name__ == '__main__':
+    print 'hello, world!'
+    t.onMarketUpdate = onMarketUpdate
+    t.onTraderUpdate = onTraderUpdate
+    t.onAckRegister = onAckRegister
+    t.onTrade = onTrade
+    t.onAckModifyOrders = onAckModifyOrders
+    t.addPeriodicCallback(periodicCallback, 500)
+    t.run()
