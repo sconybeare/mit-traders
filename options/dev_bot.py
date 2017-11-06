@@ -1,12 +1,8 @@
 import tradersbot as tt
-import math
-import random
-import sys
-import csv
-import json
 
 # Local imports
-import pcp_bot
+# import pcp_bot
+from sabr_bot import SABR_Bot
 import utils
 
 t = tt.TradersBot(host='127.0.0.1', id='trader0', password='trader0')
@@ -16,9 +12,7 @@ scheduler = utils.Scheduler()
 
 order_wrapper = utils.OrderWrapper(rate_limiter)
 
-pcp_bot = pcp_bot.PCP_Bot(rate_limiter, scheduler)
-
-strats = [pcp_bot]
+strats = [SABR_Bot(rate_limiter, scheduler)]
 
 @order_wrapper.dec
 def onAckRegister(msg, order):
@@ -58,7 +52,6 @@ def onAckModifyOrders(msg, order):
         s.onAckModifyOrders(msg, order)
 
 def periodicCallback(order):
-    print rate_limiter.amount_available()
     scheduler.run(order_wrapper.wrap(order))
 
 if __name__ == '__main__':
@@ -67,5 +60,5 @@ if __name__ == '__main__':
     t.onAckRegister = onAckRegister
     t.onTrade = onTrade
     t.onAckModifyOrders = onAckModifyOrders
-    t.addPeriodicCallback(periodicCallback, 500)
+    t.addPeriodicCallback(periodicCallback, 50)
     t.run()

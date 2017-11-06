@@ -3,6 +3,7 @@ import math
 import collections
 import monotonic as clock
 import heapq
+from datetime import datetime
 
 def translate_book(order_book):
     return {float(k) : order_book[k] for k in order_book}
@@ -12,6 +13,9 @@ def convert_market_state(market_state):
     for side in ['bids', 'asks']:
         market_state[side] = translate_book(market_state[side])
         market_state['sorted_' + side] = sorted(market_state[side].keys(), reverse=(side == 'bids'))
+
+def parse_date(date_str):
+    return datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
 
 class RateLimiter:
     def __init__(self, quota, period_seconds):

@@ -5,7 +5,7 @@ import monotonic as clock
 import bot_config
 import utils
 
-class Generic_Bot:
+class Generic_Bot(object):
     def __init__(self, limiter, scheduler):
 
         self.token_state = 0
@@ -14,7 +14,7 @@ class Generic_Bot:
         self.scheduler = scheduler
 
         self.market_books = {}
-        self.guess_books = {}
+        self.updated_books = {}
 
         self.inflight_order_tokens = set() # the set of order tokens which have not been acked
         self.active_order_tokens = set()
@@ -29,6 +29,8 @@ class Generic_Bot:
         self.retired_orders = set()
 
         self.cancel_retry_period = 0.25
+
+        self.elapsed_time = 0
 
         self.cash = {'USD' : 0}
         self.positions = {}
@@ -65,7 +67,7 @@ class Generic_Bot:
     def onAckRegister(self, internal_msg, order):
         for ticker in internal_msg['market_states']:
             self.market_books[ticker] = {}
-            self.guess_books[ticker] = {}
+            self.updated_books[ticker] = {}
 
     def cancel_active_order(self, order, token, oid):
         def bare_cancel():
@@ -86,13 +88,16 @@ class Generic_Bot:
             self.tokens_to_cancel.add(token)
 
     def onMarketUpdate(self, internal_msg, order):
-        print 'onMarketUpdate'
-        ts =  clock.monotonic()
         market_state = internal_msg['market_state']
         ticker = market_state['ticker']
+        try:
+            self.elapsed_time = internal_msg['elapsed_time']
+        except:
+            print internal_msg
+            raise
 
         self.market_books[ticker] = copy.deepcopy(market_state)
-        self.guess_books[ticker] = copy.deepcopy(market_state)
+        self.updated_books[ticker] = copy.deepcopy(market_state)
 
     # TODO: track positions in real time
     # TODO: monitor open_orders tracking error
@@ -105,7 +110,7 @@ class Generic_Bot:
         self.total_fines = 0
         self.total_rebates = 0
 
-    # TODO: use the time field to avoid applying trades to the guess books if the trades
+    # TODO: use the time field to avoid applying trades to the updated books if the trades
     # are older than the last book update
     def onTrade(self, internal_msg, order):
         for trade in internal_msg['trades']:
@@ -122,41 +127,43 @@ class Generic_Bot:
                         self.active_order_tokens.remove(token)
                         self.tokens_to_cancel.remove(token)
                         self.retired_orders.add(token)
-            guess_book = self.guess_books[ticker]
+            updated_book = self.updated_books[ticker]
+
+            updated_book['last_price'] = price
 
             # remove bids that must have traded
-            bids = self.guess_book['bids']
-            for i in xrange(len(self.guess_book['sorted_bids'])):
-                bid = self.guess_book['sorted_bids'][i]
+            bids = self.updated_book['bids']
+            for i in xrange(len(self.updated_book['sorted_bids'])):
+                bid = self.updated_book['sorted_bids'][i]
                 if bid > price:
                     bids.pop(bid)
                     continue
                 else:
-                    self.guess_book['sorted_bids'] = self.guess_book['sorted_bids'][i:]
+                    self.updated_book['sorted_bids'] = self.updated_book['sorted_bids'][i:]
                     break
-            bid = self.guess_book['sorted_bids'][0]
+            bid = self.updated_book['sorted_bids'][0]
             if bid == price:
                 if bids[bid] == qty:
                     bids.pop(bid)
-                    self.guess_book['sorted_bids'] = self.guess_book['sorted_bids'][1:]
+                    self.updated_book['sorted_bids'] = self.updated_book['sorted_bids'][1:]
                 else:
                     bids[bid] -= qty
 
             # remove asks that must have traded
-            asks = self.guess_book['asks']
-            for i in xrange(len(self.guess_book['sorted_asks'])):
-                ask = self.guess_book['sorted_asks'][i]
+            asks = self.updated_book['asks']
+            for i in xrange(len(self.updated_book['sorted_asks'])):
+                ask = self.updated_book['sorted_asks'][i]
                 if ask < price:
                     asks.pop(ask)
                     continue
                 else:
-                    self.guess_book['sorted_asks'] = self.guess_book['sorted_asks'][i:]
+                    self.updated_book['sorted_asks'] = self.updated_book['sorted_asks'][i:]
                     break
-            ask = self.guess_book['sorted_asks'][0]
+            ask = self.updated_book['sorted_asks'][0]
             if ask == price:
                 if asks[ask] == qty:
                     asks.pop(ask)
-                    self.guess_book['sorted_asks'] = self.guess_book['sorted_asks'][1:]
+                    self.updated_book['sorted_asks'] = self.updated_book['sorted_asks'][1:]
                 else:
                     asks[ask] -= qty
 
