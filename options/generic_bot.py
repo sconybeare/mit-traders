@@ -40,6 +40,8 @@ class Generic_Bot(object):
         self.total_fines = 0
         self.total_rebates = 0
 
+        self.start_ts = None
+
     def addTrade(self, order, ticker, isBuy, size, price):
         order.activate()
         token = self.gen_token()
@@ -65,6 +67,7 @@ class Generic_Bot(object):
         return self.token_prefix + str(self.token_state)
 
     def onAckRegister(self, internal_msg, order):
+        self.start_ts = clock.monotonic()
         for ticker in internal_msg['market_states']:
             self.market_books[ticker] = {}
             self.updated_books[ticker] = {}

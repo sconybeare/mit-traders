@@ -1,10 +1,79 @@
 import vollib.black_scholes.implied_volatility as ivol
 import vollib.black_scholes.greeks.analytical as greeks
+import vollib.black_scholes as bs
 import numpy as np
 import scipy.optimize as scp_opt
-import multiprocessing as mp
+import monotonic as clock
 
-def sabr_implied_vol(alpha, beta, rho, nu, F, K, T):
+class SabrPricer(object):
+    def __init__(self, beta=0.5):
+        self.model = SabrModel(beta=beta)
+
+    def add_trade(self, *args):
+        self.model.add_trade(*args)
+
+    def get_vol(self, atm_vol, S, K, T):
+        return sabr_implied_vol(atm_vol, self.model.beta, self.model.beta, self.model.rho, self.model.nu, S, K, T)
+
+    def price(self, atm_vol, S, K, T, flag):
+        vol = self.get_vol(atm_vol, S, K, T)
+        return bs.black_scholes(flag, S, K, T, 0.0, vol)
+
+    def delta(self, atm_vol, S, K, T, flag):
+        vol = self.get_vol(atm_vol, S, K, T)
+        return greeks.delta(flag, S, K, T, 0.0, vol)
+
+    def vega(self, atm_vol, S, K, T, flag):
+        vol = self.get_vol(atm_vol, S, K, T)
+        return greeks.vega(flag, S, K, T, 0.0, vol)
+
+# TODO check whether refitting is expensive enough to warrant multiprocessing
+class SabrModel(object):
+    def __init__(self, beta=0.5):
+        self.beta = beta
+        self.opt_trade_data = []
+        self.current_spot_price = None
+        self.rho = 0.0
+        self.nu = 0.1
+
+    # If we had real trade data, weight would equal the number of shares traded at that price
+    # Events should be added in the order they happen
+    def add_option_price(self, vol_atm, S, K, tau, flag, price, weight):
+        self.opt_trade_data.append((vol_atm, S, K, tau, flag.lower(), price, weight))
+
+    def fit_rho_nu(self):
+        t0 = clock.monotonic()
+        trades = np.array(self.opt_trade_data)
+        vectorized_data = trades.transpose()
+
+        # these are all numpy vectors giving these parameters of every data point
+        [vol_atm, S, K, tau, flag, price, weight] = cpts
+
+        rho_bounds = (-1.0, 1.0)
+        nu_bounds = (0.01, None)
+
+        def err(rho_nu):
+            rho, nu = rho_nu
+            rho = np.clip(rho, *rho_bounds)
+            nu = np.clip(nu, *nu_bounds)
+            alpha = compute_alpha(vol_atm, tau, S, self.beta, rho, nu)
+            sigma_mod = sabr_implied_vol_with_alpha(alpha, self.beta, rho, nu, S, K, tau)
+            sigma_tr = np.clip(ivol.implied_volatility(price, S, K, tau, 0.0, flag), 0.0, None)
+            vega_mod = greeks.vega(flag, S, K, tau, 0.0, sigma_mod)
+            f = weight * vega_mod * (sigma_mod - sigma_tr) ** 2
+            return np.sum(f)
+
+        rho, nu = scp_opt.minimize(err, (self.rho, self.nu), method='Nelder-Mead', bounds=[rho_bounds, nu_bounds])
+        t1 = clock.monotonic()
+        print 'fitted rho and nu taking time' + str(t1 - t0) + 'with' + str(len(self.opt_trade_data)) + 'data points'
+        self.rho = rho
+        self.nu = nu
+
+def sabr_implied_vol(atm_vol, beta, rho, nu, S, K, T):
+    alpha = compute_alpha(atm_implied_vol, T, S, beta, rho, nu)
+    return sabr_implied_vol_with_alpha(alpha, beta, rho, nu, S, K, T)
+
+def sabr_implied_vol_with_alpha(alpha, beta, rho, nu, F, K, T):
     zeta = (nu / (alpha*(1 - beta))) * (F_0**(1-beta) - K**(1-beta))
     D_zeta = np.log(
         (np.sqrt(1 - 2*rho*zeta + zeta**2) + zeta - rho
@@ -58,40 +127,3 @@ def compute_alpha(atm_implied_vol, tau, spot, beta, rho, nu):
 
         # return the unique real root
         return A + B - a / 3
-
-class SabrModel(object):
-    def __init__(self, beta=0.5):
-        self.beta = beta
-        self.opt_trade_data = []
-        self.current_spot_price = None
-        self.current_tau = 450
-        self.current_rho = 0.0
-        self.current_nu = 0.1
-
-    # If we had real trade data, weight would equal the number of shares traded at that price
-    # Events should be added in the order they happen
-    def add_option_price(self, vol_atm, S, K, tau, flag, price, weight):
-        self.opt_trade_data.append((vol_atm, S, K, tau, flag.lower(), price, weight))
-
-    def fit_rho_nu(self):
-        trades = np.array(self.opt_trade_data)
-        vectorized_data = trades.transpose()
-
-        # these are all numpy vectors giving these parameters of every data point
-        [vol_atm, S, K, tau, flag, price, weight] = cpts
-
-        rho_bounds = (-1.0, 1.0)
-        nu_bounds = (0.01, None)
-
-        def err(rho_nu):
-            rho, nu = rho_nu
-            rho = np.clip(rho, *rho_bounds)
-            nu = np.clip(nu, *nu_bounds)
-            alpha = compute_alpha(vol_atm, tau, S, self.beta, rho, nu)
-            sigma_mod = sabr_implied_vol(alpha, self.beta, rho, nu, S, K, tau)
-            sigma_tr = np.clip(ivol.implied_volatility(price, S, K, tau, 0.0, flag), 0.0, None)
-            vega_mod = greeks.vega(flag, S, K, tau, 0.0, sigma_mod)
-            f = weight * vega_mod * (sigma_mod - sigma_tr) ** 2
-            return np.sum(f)
-
-        scp_opt.minimize(err, (self.current_rho, self.current_nu), method='Nelder-Mead', bounds=[rho_bounds, nu_bounds])
