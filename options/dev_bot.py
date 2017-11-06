@@ -7,7 +7,7 @@ import utils
 
 t = tt.TradersBot(host='127.0.0.1', id='trader0', password='trader0')
 
-rate_limiter = utils.RateLimiter(25, 1.5) # 1.1 second fudge factor, since our timing is different from exchange's
+rate_limiter = utils.RateLimiter(25, 1.523) # fudge factor deliberately not divisible by polling rate
 scheduler = utils.Scheduler()
 
 order_wrapper = utils.OrderWrapper(rate_limiter)
@@ -41,13 +41,11 @@ def onTraderUpdate(msg, order):
 
 @order_wrapper.dec
 def onTrade(msg, order):
-    print msg
     for s in strats:
         s.onTrade(msg, order)
 
 @order_wrapper.dec
 def onAckModifyOrders(msg, order):
-    print msg
     for s in strats:
         s.onAckModifyOrders(msg, order)
 

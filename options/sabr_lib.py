@@ -16,7 +16,7 @@ class SabrPricer(object):
         self.model.add_option_price(*args)
 
     def __get_vol(self, atm_vol, S, K, T):
-        return sabr_implied_vol(atm_vol, self.model.beta, self.model.beta, self.model.rho, self.model.nu, S, K, T)
+        return sabr_implied_vol(atm_vol, self.model.beta, self.model.rho, self.model.nu, S, K, T)
 
     def price(self, atm_vol, S, K, T, flag):
         vol = self.__get_vol(atm_vol, S, K, T)

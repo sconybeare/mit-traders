@@ -18,6 +18,45 @@ class SABR_Bot(Generic_Bot):
         self.sabr_pricer = sabr_lib.SabrPricer()
         self.have_sabr_prices = False
 
+        self.order_size_mult = 1.0
+
+        self.current_sabr_delta = 0.0
+        self.current_sabr_vega = 0.0
+        self.current_sabr_gamma = 0.0
+
+        self.delta_restoring_force = 0.001
+        self.vega_restoring_force = 0.00001
+
+        # TODO compute these and avoid fines
+        self.current_black_delta = 0.0
+        self.current_black_vega = 0.0
+
+        self.min_taking_edge = 0.1
+
+        self.token_prefix = ':SABRBOT:'
+
+    def update_sabr_greeks(self):
+        delta = 0.0
+        vega = 0.0
+        gamma = 0.0
+        atm_vol = self.at_money_vol()
+        S = self.last(ticker_lib.futures)
+        T = self.maturity()
+        for ticker in self.positions:
+            pos_amt = self.positions[ticker]
+            if ticker == ticker_lib.futures:
+                delta -= pos_amt
+            else:
+                K, flag = ticker_lib.rev_option_tickers[ticker]
+                delta += self.sabr_pricer.delta(atm_vol, S, K, T, flag)*pos_amt
+                vega += self.sabr_pricer.vega(atm_vol, S, K, T, flag)*pos_amt
+                gamma += self.sabr_pricer.gamma(atm_vol, S, K, T, flag)*pos_amt
+        self.current_sabr_delta = delta
+        self.current_sabr_vega = vega
+        self.current_sabr_gamma = gamma
+
+        print 'delta =', delta, 'vega =', vega, 'gamma =', gamma
+
     def onMarketUpdate(self, msg, order):
         Generic_Bot.onMarketUpdate(self, msg, order)
 
@@ -41,6 +80,47 @@ class SABR_Bot(Generic_Bot):
             K, self.maturity(), 1 * (flag == 'c'), # This prevents numpy from casting everything to strings
             self.last(ticker), 1.0)
 
+        # TODO split this off into a function that checks a ticker for good trades
+        # TODO use the liquidity in the book to size trades
+        if self.limiter.amount_available() < 3:
+            return
+        try:
+            # TODO modify fair value with fade based on existing greek exposures.
+            S = self.last(ticker_lib.futures)
+            T = self.maturity()
+            pure_fair = self.sabr_pricer.price(atm_vol, S, K, T, flag)
+            trade_delta = self.sabr_pricer.delta(atm_vol, S, K, T, flag) # delta of 1 security
+            trade_vega = self.sabr_pricer.vega(atm_vol, S, K, T, flag)
+            fair = pure_fair - (
+                trade_delta*self.current_sabr_delta*self.delta_restoring_force +
+                trade_vega*self.current_sabr_vega*self.vega_restoring_force)
+            book = self.market_books[ticker]
+            try:
+                bid = book['sorted_bids'][0]
+                if bid > fair * (1 + self.min_taking_edge):
+                    size = 1
+                    order.reserve_active(1)
+                    self.addTrade(order, ticker, False, size, fair * (1 + self.min_taking_edge))
+                    self.current_sabr_delta -= trade_delta*size
+                    self.current_sabr_vega -= trade_vega*size
+                    print 'selling', size, ticker, 'for', fair * (1 + self.min_taking_edge)
+            except IndexError:
+                pass
+            try:
+                ask = book['sorted_asks'][0]
+                if ask < fair * (1 - self.min_taking_edge):
+                    size = 1
+                    order.reserve_active(1)
+                    self.addTrade(order, ticker, True, size, fair * (1 - self.min_taking_edge))
+                    print 'buying', size, ticker, 'for', fair * (1 - self.min_taking_edge)
+                    self.current_sabr_delta += trade_delta*size
+                    self.current_sabr_vega += trade_vega*size
+            except IndexError:
+                pass
+        except utils.BorrowError:
+            print 'BorrowError!'
+            pass
+
     def onAckRegister(self, *args):
         Generic_Bot.onAckRegister(self, *args)
         def f(order):
@@ -52,8 +132,12 @@ class SABR_Bot(Generic_Bot):
             print 'finished fitting rho and nu in', t1 - t0, 'seconds'
         # self.scheduler.schedule_delay(f, 30)
 
+    def onAckModifyOrders(self, msg, order):
+        Generic_Bot.onAckModifyOrders(self, msg, order)
+
     def onTraderUpdate(self, msg, order):
         Generic_Bot.onTraderUpdate(self, msg, order)
+        self.update_sabr_greeks()
 
     def onTrade(self, msg, order):
         Generic_Bot.onTraderUpdate(self, msg, order)

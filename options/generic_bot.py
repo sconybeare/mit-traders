@@ -97,7 +97,7 @@ class Generic_Bot(object):
         try:
             self.elapsed_time = internal_msg['elapsed_time']
         except:
-            print internal_msg
+            # print internal_msg
             raise
 
         self.market_books[ticker] = copy.deepcopy(market_state)
@@ -106,7 +106,11 @@ class Generic_Bot(object):
     # TODO: track positions in real time
     # TODO: monitor open_orders tracking error
     def onTraderUpdate(self, internal_msg, order):
-        trader_state = internal_msg['trader_state']
+        try:
+            trader_state = internal_msg['trader_state']
+        except KeyError:
+            # print internal_msg
+            return
         self.positions   = copy.deepcopy(trader_state['positions'])
         self.open_orders = copy.deepcopy(trader_state['open_orders'])
         self.pnl         = copy.deepcopy(trader_state['pnl'])
@@ -172,16 +176,20 @@ class Generic_Bot(object):
                     asks[ask] -= qty
 
     def onAckModifyOrders(self, internal_msg, order):
-        print 'onAckModifyOrders'
-        for cancel in internal_msg['cancels']:
-            for oid in cancel:
-                token = self.order_id_to_token[oid]
-                self.active_order_tokens.remove(token)
-                self.inflight_cancels.remove(token)
-            self.inflight_cancels.remove()
-        for order_data in internal_msg['orders']:
-            token = order_data['token']
-            oid = order_data['order_id']
-            self.order_token_to_id[token] = oid
-            self.order_id_to_token[oid] = token
-            del self.inflight_order_tokens[token]
+        try:
+            for cancel in internal_msg['cancels']:
+                for oid in cancel:
+                    token = self.order_id_to_token[oid]
+                    self.active_order_tokens.remove(token)
+                    self.inflight_cancels.remove(token)
+        except KeyError:
+            pass
+        try:
+            for order_data in internal_msg['orders']:
+                token = order_data['token']
+                oid = order_data['order_id']
+                self.order_token_to_id[token] = oid
+                self.order_id_to_token[oid] = token
+                del self.inflight_order_tokens[token]
+        except KeyError:
+            pass
