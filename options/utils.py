@@ -5,6 +5,9 @@ import monotonic as clock
 import heapq
 from datetime import datetime
 
+import sys
+import traceback
+
 def translate_book(order_book):
     return {float(k) : order_book[k] for k in order_book}
 
@@ -82,7 +85,12 @@ class Scheduler:
     def __run_next_job(self, order):
         f = self.__pop_job()
         if f is not None:
-            f(order)
+            try:
+                f(order)
+            except:
+                print sys.exc_info()
+                traceback.print_tb(sys.exc_info()[2])
+                sys.exit()
             return True
         else:
             return False

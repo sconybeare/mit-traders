@@ -69,8 +69,9 @@ class Generic_Bot(object):
     def onAckRegister(self, internal_msg, order):
         self.start_ts = clock.monotonic()
         for ticker in internal_msg['market_states']:
-            self.market_books[ticker] = {}
-            self.updated_books[ticker] = {}
+            market_state = internal_msg['market_states'][ticker]
+            self.market_books[ticker] = market_state
+            self.updated_books[ticker] = market_state
 
     def cancel_active_order(self, order, token, oid):
         def bare_cancel():
