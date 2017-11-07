@@ -43,7 +43,7 @@ class RateLimiter:
     # TODO restore from queue before checking for exception case
     def borrow(self, n):
         ts = clock.monotonic()
-        if n > self.quota:
+        if n > self.amount_available():
             raise BorrowError
         self.quota -= n
         self.restore_queue.append((n, ts))
@@ -116,9 +116,9 @@ class OrderWrapper:
 
             def reserve_active(self, n):
                 if self.activated:
-                    self.reserve(n+1)
-                else:
                     self.reserve(n)
+                else:
+                    self.reserve(n+1)
 
             def reserve(self, n):
                 limiter.borrow(n)

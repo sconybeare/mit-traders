@@ -4,10 +4,11 @@ import vollib.black_scholes as bs
 import numpy as np
 import scipy.optimize as scp_opt
 import monotonic as clock
+import multiprocessing as mp
 
 class SabrPricer(object):
-    def __init__(self, beta=0.5):
-        self.model = SabrModel(beta=beta)
+    def __init__(self, beta=0.6):
+        self.model = SabrModelWrapper(beta)
 
     def refit_model(self):
         self.model.refit_rho_nu()
@@ -16,11 +17,16 @@ class SabrPricer(object):
         self.model.add_option_price(*args)
 
     def __get_vol(self, atm_vol, S, K, T):
+        self.model.refresh()
         return sabr_implied_vol(atm_vol, self.model.beta, self.model.rho, self.model.nu, S, K, T)
 
     def price(self, atm_vol, S, K, T, flag):
         vol = self.__get_vol(atm_vol, S, K, T)
-        return bs.black_scholes(flag, S, K, T, 0.0, vol)
+        result = bs.black_scholes(flag, S, K, T, 0.0, vol)
+        if result < 0:
+            raise ValueError
+        else:
+            return result
 
     def delta(self, atm_vol, S, K, T, flag):
         vol = self.__get_vol(atm_vol, S, K, T)
@@ -34,16 +40,67 @@ class SabrPricer(object):
         vol = self.__get_vol(atm_vol, S, K, T)
         return greeks.gamma(flag, S, K, T, 0.0, vol)
 
+    def black_delta(self, price, S, K, T, flag):
+        vol = np.clip(ivol.implied_volatility(price, S, K, T, 0.0, flag), 0, None)
+        delta = greeks.delta(flag, S, K, T, 0.0, vol)
+        return delta
+
+    def black_vega(self, price, S, K, T, flag):
+        vol = np.clip(ivol.implied_volatility(price, S, K, T, 0.0, flag), 0, None)
+        vega = greeks.vega(flag, S, K, T, 0.0, vol)
+        return vega
+
+    def black_gamma(self, price, S, K, T, flag):
+        vol = np.clip(ivol.implied_volatility(price, S, K, T, 0.0, flag), 0, None)
+        gamma = greeks.gamma(flag, S, K, T, 0.0, vol)
+        return gamma
+
+DATA_POINT = 0
+REFIT = 1
+class SabrModelWrapper(object):
+
+    def __init__(self, beta):
+        self.data_queue = mp.Queue()
+        conn1, conn2 = mp.Pipe(False)
+        self.recv_conn = conn1
+        self.beta = beta
+        self.rho = 0.01
+        self.nu = 0.048
+        def f():
+            model = SabrModel(beta)
+            while True:
+                x, y = self.data_queue.get()
+                if x == DATA_POINT:
+                    model.add_option_price(*y)
+                else: # x == REFIT
+                    model.refit_rho_nu
+                    conn2.send((model.rho, model.nu))
+        self.child = mp.Process(target = f)
+        self.child.start()
+
+    def add_option_price(self, *args):
+        self.data_queue.put((DATA_POINT, args))
+
+    def refit_rho_nu(self):
+        self.data_queue.put((REFIT, 0))
+
+    def refresh(self):
+        if self.recv_conn.poll():
+            (rho, nu) = self.recv_conn.recv()
+            print 'updated rho =', rho, 'nu =', nu
+            self.rho = rho
+            self.nu = nu
+
 vectorized_ivol = np.vectorize(ivol.implied_volatility, otypes='F', excluded=set([4]))
 vectorized_vega = np.vectorize(greeks.vega, otypes='F', excluded=set([4]))
 
 # TODO check whether refitting is expensive enough to warrant multiprocessing
 class SabrModel(object):
-    def __init__(self, beta=0.5):
+    def __init__(self, beta):
         self.beta = beta
         self.opt_trade_data = []
         self.current_spot_price = None
-        self.rho = 0.03 # defaults based on a random 1-minute period of case 2
+        self.rho = 0.01 # defaults based on a random 1-minute period of case 2
         self.nu = 0.048 # ^^^
 
     # If we had real trade data, weight would equal the number of shares traded at that price
@@ -52,7 +109,9 @@ class SabrModel(object):
         self.opt_trade_data.append((vol_atm, S, K, tau, flag, price, weight))
 
     def refit_rho_nu(self):
-        print len(self.opt_trade_data)
+        if len(self.opt_trade_data) < 100:
+            print 'need 100 data points to refit rho and nu,', len(self.opt_trade_data), 'is not enough'
+        print 'refitting with', len(self.opt_trade_data), 'data points'
         trades = np.array(self.opt_trade_data)
         print trades[0]
         vectorized_data = trades.transpose()
@@ -81,6 +140,7 @@ class SabrModel(object):
         self.rho = np.clip(rho, *rho_bounds)
         self.nu = np.clip(nu, *nu_bounds)
         print res
+        self.opt_trade_data = []
 
 def sabr_implied_vol(atm_vol, beta, rho, nu, S, K, T):
     alpha = compute_alpha(atm_vol, T, S, beta, rho, nu)
