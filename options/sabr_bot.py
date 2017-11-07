@@ -44,36 +44,37 @@ class SABR_Bot(Generic_Bot):
         self.current_black_gamma = 0.0
         self.current_num_options = 0
 
-        self.min_taking_edge = 0.2
+        self.min_taking_edge = 0.05
 
         self.token_prefix = ':SABRBOT:'
 
         self.delta_hedge_cutoff = 20.0
 
     def update_limited_positions(self):
-        delta = 0.0
-        vega = 0.0
-        gamma = 0.0
+        # delta = 0.0
+        # vega = 0.0
+        # gamma = 0.0
         num_options = 0
         S = self.last(ticker_lib.futures)
-        T = self.maturity()
+        # T = self.maturity()
         for ticker in self.positions:
             pos_amt = self.positions[ticker]
             if ticker == ticker_lib.futures:
-                delta += pos_amt
+                # delta += pos_amt
+                pass
             else:
-                K, flag = ticker_lib.rev_option_tickers[ticker]
-                price = self.last(ticker)
-                delta += self.sabr_pricer.black_delta(price, S, K, T, flag)*pos_amt
-                vega += self.sabr_pricer.black_vega(price, S, K, T, flag)*pos_amt
-                gamma += self.sabr_pricer.black_gamma(price, S, K, T, flag)*pos_amt
+                # K, flag = ticker_lib.rev_option_tickers[ticker]
+                # price = self.last(ticker)
+                # delta += self.sabr_pricer.black_delta(price, S, K, T, flag)*pos_amt
+                # vega += self.sabr_pricer.black_vega(price, S, K, T, flag)*pos_amt
+                # gamma += self.sabr_pricer.black_gamma(price, S, K, T, flag)*pos_amt
                 num_options += abs(pos_amt)
-        self.current_black_delta = delta
-        self.current_black_vega = vega
-        self.current_black_gamma = gamma
+        # self.current_gamma = delta
+        # self.current_black_vega = vega
+        # self.current_black_gamma = gamma
         self.current_num_options = num_options
 
-        print 'black_delta =', delta, 'black_vega =', vega, 'black_gamma =', gamma
+        # print 'black_delta =', delta, 'black_vega =', vega, 'black_gamma =', gamma
         print num_options, 'long and short options combined'
 
     def update_sabr_greeks(self):
@@ -133,7 +134,7 @@ class SABR_Bot(Generic_Bot):
         except KeyError:
             # Futures, we update at-money volatility
             try:
-                r = 0.3
+                r = 0.25
                 self.atm_vol = self.at_money_vol() * r + (1 - r) * self.atm_vol
             except KeyError:
                 print 'No spot price yet:'
@@ -195,7 +196,7 @@ class SABR_Bot(Generic_Bot):
                 pass
             try:
                 ask = book['sorted_asks'][0]
-                if ask < fair * (1 - self.min_taking_edge):
+                if ask < fair / (1 + self.min_taking_edge):
                     size = int(self.order_size_mult)
                     order.reserve_active(1)
                     self.addTrade(order, ticker, True, size, fair * (1 - self.min_taking_edge))
