@@ -11,7 +11,6 @@ orderbook = dict(USDCAD={"bids": {}, "asks": {}}, USDJPY={"bids": {}, "asks": {}
                  EURCHF={"bids": {}, "asks": {}}, EURCAD={"bids": {}, "asks": {}})
 
 # everything we need to know about our state of being
-# TODO replace this with the generic_bot code
 traderstate = {'cash': {"USD": 100000}, 'positions': {}, 'open_orders': {}, 'pnl': {"USD": 0}, 'time': '1',
                'total_fees': 0, 'total_fines': 0, 'total_rebates': 0}
 
@@ -33,10 +32,8 @@ def marketUpdate(msg, order):
     print("market update")
     global orderbook
     global openorders
-    # print(msg)
-    spread = .8  # TODO figure out how to use spread better
-    # spread worked best so far at 1.5
-    # sets up information from the marketUpdate
+    print(msg)
+    spread = 1.5
     index = msg["market_state"]["ticker"]
     bids = msg["market_state"]["bids"]
     asks = msg["market_state"]["asks"]
@@ -61,19 +58,18 @@ def marketUpdate(msg, order):
     for darksecurity in darktickers:
         updatedarkedges(darksecurity, order)  # update the arbitrage market prices
 
-    # start trading after 1 second
-    if time.time() - starttime > 1:
-        if index == "USDCHF":
-            opendarkorder('EURCHF', order, .11)  # TODO spread and quantity
 
-        elif index == "EURUSD":
-            opendarkorder('EURJPY', order, 1.5)
+    if index == "USDCHF":
+        opendarkorder('EURCHF', order, .11)
 
-        elif index == 'USDJPY':
-            opendarkorder('CHFJPY', order, 1.5)
+    elif index == "EURUSD":
+        opendarkorder('EURJPY', order, 1.5)
 
-        elif index == 'USDCAD':
-            opendarkorder('EURCAD', order, .11)
+    elif index == 'USDJPY':
+        opendarkorder('CHFJPY', order, 1.5)
+
+    elif index == 'USDCAD':
+        opendarkorder('EURCAD', order, .11)
 
     # delete open orders after 2.5 seconds...too many orders
     deletedorders = []
@@ -89,6 +85,8 @@ def marketUpdate(msg, order):
 
     for i in deletedorders:
         del openorders[i]
+
+
 
 
 def updatedarkedges(darksecurity, order):
