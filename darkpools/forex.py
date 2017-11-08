@@ -3,6 +3,7 @@ import time
 
 t = tradersbot.TradersBot('127.0.0.1', 'trader0', 'trader0')
 tickers = ['USDCAD', 'EURUSD', 'USDCHF', 'USDJPY', 'EURCAD', 'EURJPY', 'EURCHF', 'CHFJPY']
+print("starting")
 
 # the book as we know it
 orderbook = dict(USDCAD={"bids": {}, "asks": {}}, USDJPY={"bids": {}, "asks": {}}, EURUSD={"bids": {}, "asks": {}},
@@ -29,6 +30,7 @@ openorders = {}
 
 
 def marketUpdate(msg, order):
+    print("market update")
     global orderbook
     global openorders
     # print(msg)
@@ -247,6 +249,12 @@ def acknowledgedOrders(msg, order):
             openorders[eachorder['order_id']] = eachorder, time.time()
             print(openorders)
 
+
+
+
+
+t.onMarketUpdate = marketUpdate
+t.onAckRegister = 
 t.run()
 
 """
