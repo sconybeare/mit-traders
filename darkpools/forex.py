@@ -3,6 +3,7 @@ import time
 
 t = tradersbot.TradersBot('127.0.0.1', 'trader0', 'trader0')
 tickers = ['USDCAD', 'EURUSD', 'USDCHF', 'USDJPY', 'EURCAD', 'EURJPY', 'EURCHF', 'CHFJPY']
+unseen_tickers = set(['USDCAD', 'EURUSD', 'USDCHF', 'USDJPY'])
 print("starting")
 
 # the book as we know it
@@ -21,6 +22,8 @@ darktickers = ['EURCHF', 'EURCAD', 'EURJPY', 'CHFJPY']
 edges = {'USDCAD': 0, 'EURUSD': 0, 'USDCHF': 0, 'USDJPY': 0, 'EURCAD': 0, 'EURJPY': 0, 'EURCHF': 0, 'CHFJPY': 0,
          'CADUSD': 0, 'USDEUR': 0, 'CHFUSD': 0, 'JPYUSD': 0, 'CADEUR': 0, 'JPYEUR': 0, 'CHFEUR': 0, 'JPYCHF': 0}
 
+
+
 # by dark pool order
 triangles = {'EURCHF': ('USDCHF', 'EURUSD'), 'EURCAD': ('USDCAD', 'EURUSD'),
              'EURJPY': ('USDJPY', 'EURUSD'), 'CHFJPY': ('USDJPY', 'USDCHF')}
@@ -29,10 +32,10 @@ openorders = {}
 
 
 def marketUpdate(msg, order):
-    print("market update")
+    #print("market update")
     global orderbook
     global openorders
-    print(msg)
+    #print(msg)
     spread = 1.5
     index = msg["market_state"]["ticker"]
     bids = msg["market_state"]["bids"]
@@ -74,30 +77,54 @@ def marketUpdate(msg, order):
     # delete open orders after 2.5 seconds...too many orders
     deletedorders = []
     for everyorder in openorders:
+        print 'l1'
         if openorders[everyorder][0]['ticker'] in darktickers:
+            print 'l2'
             if (time.time() - openorders[everyorder][1]) > 2.0:
+                print 'l3'
                 order.addCancel(openorders[everyorder][0]['ticker'], openorders[everyorder][0]['order_id'])
                 deletedorders.append(everyorder)
         else:
+            print 'l4'
             if (time.time() - openorders[everyorder][1]) > 4:
+                print 'l5'
+                print 'openorders[everyorder] =', openorders[everyorder][0]
                 order.addCancel(openorders[everyorder][0]['ticker'], openorders[everyorder][0]['order_id'])
                 deletedorders.append(everyorder)
 
     for i in deletedorders:
         del openorders[i]
 
-    print(traderstate)
-    print(edges)
-    print(orderbook)
-
+    #print(traderstate)
+    #print(edges)
+    #print(orderbook)
+    
+    do_trades(0.01)
 
 
 def updatedarkedges(darksecurity, order):
     if darksecurity == 'CHFJPY':
-        edges[darksecurity] = edges[triangles[darksecurity][0]] * (1 / (edges[triangles[darksecurity][1]]))
-
+        if edges[triangles[darksecurity][1]] != 0:
+            edges[darksecurity] = edges[triangles[darksecurity][0]] * (1 / (edges[triangles[darksecurity][1]]))
+        else:
+            print("saved error")
     else:
         edges[darksecurity] = edges[triangles[darksecurity][0]] * edges[triangles[darksecurity][1]]
+
+
+def do_trades(edge_req):
+    for elem in triangles:
+        if calculate_triangle(elem) > edge_req:
+            print("make trade")
+
+
+def calculate_triangle(curr_edge):
+    dark = edges[curr_edge]
+    light1 = edges[triangles[curr_edge][0]]
+    light2 = edges[triangles[curr_edge][1]]
+    fee = 0.0001
+
+    return (dark - light1 * light2) - (3 * fee)
 
 
 def opendarkorder(darksecurity, order, spread):
@@ -241,28 +268,23 @@ def reactOnTrade(msg, order):
 
 def acknowledgedOrders(msg, order):
     global openorders
-    print(msg)
+    #print(msg)
     if 'orders' in msg:
         orders = msg["orders"]
 
         for eachorder in orders:  # process each order, add to openorders
-            print(eachorder)
+            #print(eachorder)
             openorders[eachorder['order_id']] = eachorder, time.time()
-            print(openorders)
+            #print(openorders)
 
 
+def onTraderUpdate(msg, order)[
 
 
 
 t.onMarketUpdate = marketUpdate
+
+t.onTrade = reactOnTrade
+t.onAckModifyOrders = acknowledgedOrders
+
 t.run()
-
-"""
-Potential callbacks:
-
-onAckRegister: MangoCore has acknowledged your registration
-onMarketUpdate: an update with the orderbook and last transaction price of some single ticker
-onTraderUpdate: a periodic update with your current trade state; should be already known from internal book
-onTrade: a trade (not necessarily involving you) has occurred
-onAckModifyOrders: MangoCore has acknowledged your order
-"""
