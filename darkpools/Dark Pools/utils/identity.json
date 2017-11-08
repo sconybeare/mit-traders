@@ -1,0 +1,26 @@
+{
+  "internalbot": {
+    "trader_id": "internalbot",
+    "password": "hunter2",
+    "admin": false,
+    "unlimited": true
+  },
+  "darkbot0": {
+    "trader_id": "darkbot0",
+    "password": "darkbot0",
+    "admin": false,
+    "unlimited": true
+  },
+  "admin": {
+    "trader_id": "admin",
+    "password": "4WN2cbdOuXwES",
+    "admin": true,
+    "unlimited": true
+  },
+  "trader0": {
+    "trader_id": "trader0",
+    "password": "trader0",
+    "admin": false,
+    "unlimited": false
+  }
+}
