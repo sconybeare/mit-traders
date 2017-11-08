@@ -265,5 +265,4 @@ onMarketUpdate: an update with the orderbook and last transaction price of some 
 onTraderUpdate: a periodic update with your current trade state; should be already known from internal book
 onTrade: a trade (not necessarily involving you) has occurred
 onAckModifyOrders: MangoCore has acknowledged your order
-onNews: a news event has arrived
 """
