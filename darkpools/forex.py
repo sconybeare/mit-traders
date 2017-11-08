@@ -86,6 +86,9 @@ def marketUpdate(msg, order):
     for i in deletedorders:
         del openorders[i]
 
+    print(traderstate)
+    print(edges)
+    print(orderbook)
 
 
 
@@ -252,7 +255,6 @@ def acknowledgedOrders(msg, order):
 
 
 t.onMarketUpdate = marketUpdate
-t.onAckRegister = 
 t.run()
 
 """
