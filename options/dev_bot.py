@@ -7,7 +7,7 @@ import utils
 
 t = tt.TradersBot(host='127.0.0.1', id='trader0', password='trader0')
 
-rate_limiter = utils.RateLimiter(25, 1.523) # fudge factor deliberately not divisible by polling rate, and we limit to 20 just to be safe
+rate_limiter = utils.RateLimiter(90, 1.523) # fudge factor deliberately not divisible by polling rate, and we limit to 20 just to be safe
 scheduler = utils.Scheduler()
 
 order_wrapper = utils.OrderWrapper(rate_limiter)
