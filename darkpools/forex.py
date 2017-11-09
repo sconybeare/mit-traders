@@ -1,5 +1,5 @@
 import tradersbot
-import time
+import monotonic as clock
 
 t = tradersbot.TradersBot('127.0.0.1', 'trader0', 'trader0')
 tickers = ['USDCAD', 'EURUSD', 'USDCHF', 'USDJPY', 'EURCAD', 'EURJPY', 'EURCHF', 'CHFJPY']
@@ -80,13 +80,13 @@ def marketUpdate(msg, order):
         print 'l1'
         if openorders[everyorder][0]['ticker'] in darktickers:
             print 'l2'
-            if (time.time() - openorders[everyorder][1]) > 2.0:
+            if (clock.monotonic() - openorders[everyorder][1]) > 2.0:
                 print 'l3'
                 order.addCancel(openorders[everyorder][0]['ticker'], openorders[everyorder][0]['order_id'])
                 deletedorders.append(everyorder)
         else:
             print 'l4'
-            if (time.time() - openorders[everyorder][1]) > 4:
+            if (clock.monotonic() - openorders[everyorder][1]) > 4:
                 print 'l5'
                 print 'openorders[everyorder] =', openorders[everyorder][0]
                 order.addCancel(openorders[everyorder][0]['ticker'], openorders[everyorder][0]['order_id'])
@@ -274,11 +274,23 @@ def acknowledgedOrders(msg, order):
 
         for eachorder in orders:  # process each order, add to openorders
             #print(eachorder)
-            openorders[eachorder['order_id']] = eachorder, time.time()
+            openorders[eachorder['order_id']] = eachorder, clock.monotonic()
             #print(openorders)
 
 
-def onTraderUpdate(msg, order)[
+last_reset = 0.0
+def onTraderUpdate(msg, order):
+    global last_reset
+    ts = clock.monotonic()
+    try:
+        if ts - last_rest > 5:
+            last_reset = ts
+            for open_order in msg['trader_state']['open_orders']:
+                order.addCancel(open_order['ticker'], open_order['order_id'])
+    except KeyError:
+        print 'failed cancelAll loop, msg =', msg
+
+
 
 
 
