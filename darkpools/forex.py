@@ -30,7 +30,8 @@ openorders = {}
 # spring constants for the bias towards USD
 springs = {'CAD': 1, 'EUR': 1, 'CHF': 1, 'JPY': 1, "bad_val": 1}
 
-fairs = {'USDCAD': 0, 'EURUSD': 0, 'USDCHF': 0, 'USDJPY': 0, 'EURCAD': 0, 'EURJPY': 0, 'EURCHF': 0, 'CHFJPY': 0}
+fairs = {'USDCAD': 0, 'EURUSD': 0, 'USDCHF': 0, 'USDJPY': 0, 'EURCAD': 0, 'EURJPY': 0, 'EURCHF': 0, 'CHFJPY': 0,
+         'CADUSD': 0, 'USDEUR': 0, 'CHFUSD': 0, 'JPYUSD': 0, 'CADEUR': 0, 'JPYEUR': 0, 'CHFEUR': 0, 'JPYCHF': 0}
 
 def market_update(msg, order):
     global orderbook
@@ -105,11 +106,14 @@ def update_fairs():
             spring = key.replace("USD", "")
 
         if bbos[key] != 0 and bbos[key[3:]+key[:3]] != 0:
-            fairs[key] = ((bbos[key] + bbos[key[3:]+key[:3]]) / 2) * springs[spring]
+            fairs[key] = ((bbos[key] + bbos[key[3:] + key[:3]]) / 2) * springs[spring]
+            fairs[key[3:] + key[:3]] = ((bbos[key] + bbos[key[3:] + key[:3]]) / 2) * springs[spring]
         elif bbos[key] != 0:
             fairs[key] = (bbos[key]) * springs[spring]
+            fairs[key[3:] + key[:3]] = (bbos[key]) * springs[spring]
         elif bbos[key[3:]+key[:3]] != 0:
             fairs[key] = bbos[key[3:]+key[:3]] * springs[spring]
+            fairs[key[3:] + key[:3]] = bbos[key[3:]+key[:3]] * springs[spring]
 
 
 def update_dark_bbos(darksecurity, order):
