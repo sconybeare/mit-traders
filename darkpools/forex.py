@@ -56,20 +56,21 @@ def market_update(msg, order):
         edges[endedge + startedge] = lowestask
 
     for darksecurity in darktickers:
-        update_dark_edges(darksecurity, order)  # update the arbitrage market prices
+        update_dark_edges(darksecurity, order)
 
 
     if index == "USDCHF":
-        open_dark_order('EURCHF', order, .11)
+        open_dark_order('EURCHF', order, .15)
 
     elif index == "EURUSD":
-        open_dark_order('EURJPY', order, 1.5)
+        open_dark_order('EURJPY', order, .95)
 
     elif index == 'USDJPY':
-        open_dark_order('CHFJPY', order, 1.5)
+        open_dark_order('CHFJPY', order, 1.2)
 
     elif index == 'USDCAD':
-        open_dark_order('EURCAD', order, .11)
+        open_dark_order('EURCAD', order, .1)
+
 
     # clean open orders
     deletedorders = []
@@ -106,7 +107,6 @@ def update_dark_edges(darksecurity, order):
 
 
 def open_dark_order(darksecurity, order, spread):
-    """orders a dark currency at a price suitable for arbitrage"""
 
     if len(openorders) < 30:
         order.addTrade(darksecurity, False, 200, edges[darksecurity] + spread)
@@ -209,6 +209,7 @@ def verify_trader_state(msg, order):
 
 t.onMarketUpdate = market_update
 t.onTraderUpdate = verify_trader_state
+t.onTrade = reactOnTrade
 t.onAckModifyOrders = acknowledged_orders
 t.run()
 
