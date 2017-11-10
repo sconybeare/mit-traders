@@ -93,6 +93,7 @@ def market_update(msg, order):
 
     update_springs()
     update_fairs()
+    provide_liquidity(order, 100, 15)
 
 
 def update_springs():
@@ -230,10 +231,10 @@ def acknowledged_orders(msg, order):
             openorders[elem['order_id']] = elem, time.time()
 
 
-def provide_liquidity(order, quantity):
+def provide_liquidity(order, quantity, spread):
     for elem in tickers:
-        order.addTrade(elem, False, quantity, fairs[elem] )
-        order.addTrade(elem, True, quantity, fairs[elem])
+        order.addTrade(elem, False, quantity, fairs[elem] - spread)
+        order.addTrade(elem, True, quantity, fairs[elem] + spread)
 
 
 def verify_trader_state(msg, order):
