@@ -10,9 +10,6 @@ orderbook = dict(USDCAD={"bids": {}, "asks": {}}, USDJPY={"bids": {}, "asks": {}
                  USDCHF={"bids": {}, "asks": {}}, CHFJPY={"bids": {}, "asks": {}}, EURJPY={"bids": {}, "asks": {}},
                  EURCHF={"bids": {}, "asks": {}}, EURCAD={"bids": {}, "asks": {}})
 
-# spring constants for the bias towards USD
-springs = dict(CAD=1, JPY=1, EUR=1, CHF=1)
-
 # everything we need to know about our state of being
 traderstate = {'cash': {"USD": 100000}, 'positions': {}, 'open_orders': {}, 'pnl': {"USD": 0}, 'time': '1',
                'total_fees': 0, 'total_fines': 0, 'total_rebates': 0}
@@ -20,8 +17,8 @@ traderstate = {'cash': {"USD": 100000}, 'positions': {}, 'open_orders': {}, 'pnl
 # just the dark pools
 darktickers = ['EURCHF', 'EURCAD', 'EURJPY', 'CHFJPY']
 
-# all edges as they appear in the exchange
-edges = {'USDCAD': 0, 'EURUSD': 0, 'USDCHF': 0, 'USDJPY': 0, 'EURCAD': 0, 'EURJPY': 0, 'EURCHF': 0, 'CHFJPY': 0,
+# all bbos as they appear in the exchange
+bbos = {'USDCAD': 0, 'EURUSD': 0, 'USDCHF': 0, 'USDJPY': 0, 'EURCAD': 0, 'EURJPY': 0, 'EURCHF': 0, 'CHFJPY': 0,
          'CADUSD': 0, 'USDEUR': 0, 'CHFUSD': 0, 'JPYUSD': 0, 'CADEUR': 0, 'JPYEUR': 0, 'CHFEUR': 0, 'JPYCHF': 0}
 
 # by dark pool order
@@ -30,6 +27,10 @@ triangles = {'EURCHF': ('USDCHF', 'EURUSD'), 'EURCAD': ('USDCAD', 'EURUSD'),
 
 openorders = {}
 
+# spring constants for the bias towards USD
+springs = dict(CAD=1, JPY=1, EUR=1, CHF=1)
+
+fairs = {'USDCAD': 0, 'EURUSD': 0, 'USDCHF': 0, 'USDJPY': 0, 'EURCAD': 0, 'EURJPY': 0, 'EURCHF': 0, 'CHFJPY': 0}
 
 def market_update(msg, order):
     global orderbook
@@ -48,15 +49,15 @@ def market_update(msg, order):
     if bids != {}:
         listbids = list(msg["market_state"]["bids"].keys())
         highestbid = float(listbids[listbids.index(max(listbids))])
-        edges[index] = highestbid
+        bbos[index] = highestbid
 
     if asks != {}:
         listasks = list(msg["market_state"]["asks"].keys())
         lowestask = float(listasks[listasks.index(min(listasks))])
-        edges[endedge + startedge] = lowestask
+        bbos[endedge + startedge] = lowestask
 
     for darksecurity in darktickers:
-        update_dark_edges(darksecurity, order)
+        update_dark_bbos(darksecurity, order)
 
 
     if index == "USDCHF":
@@ -89,28 +90,36 @@ def market_update(msg, order):
         del openorders[i]
 
     update_springs()
+    update_fairs()
 
 
 def update_springs():
     print("update springs")
 
 
-def update_dark_edges(darksecurity, order):
+def update_fairs():
+    test_string = "123456"
+    print(test_string[3:]+test_string[:3])
+    for key in bbos:
+        fairs[key] = (bbos[key] + bbos[key[3:]+key[:3]]) / 2
+
+
+def update_dark_bbos(darksecurity, order):
     if darksecurity == 'CHFJPY':
-        if not edges[triangles[darksecurity][1]] == 0:
-            edges[darksecurity] = edges[triangles[darksecurity][0]] * (1 / (edges[triangles[darksecurity][1]]))
+        if not bbos[triangles[darksecurity][1]] == 0:
+            bbos[darksecurity] = bbos[triangles[darksecurity][0]] * (1 / (bbos[triangles[darksecurity][1]]))
         else:
             print("saved divide by zero")
 
     else:
-        edges[darksecurity] = edges[triangles[darksecurity][0]] * edges[triangles[darksecurity][1]]
+        bbos[darksecurity] = bbos[triangles[darksecurity][0]] * bbos[triangles[darksecurity][1]]
 
 
 def open_dark_order(darksecurity, order, spread):
 
     if len(openorders) < 30:
-        order.addTrade(darksecurity, False, 200, edges[darksecurity] + spread)
-        order.addTrade(darksecurity, True, 200, edges[darksecurity] - spread)
+        order.addTrade(darksecurity, False, 200, bbos[darksecurity] + spread)
+        order.addTrade(darksecurity, True, 200, bbos[darksecurity] - spread)
 
 
 def respond_dark_completion_buy(darksecurity, is_buy, quantity, order):
@@ -122,28 +131,27 @@ def respond_dark_completion_buy(darksecurity, is_buy, quantity, order):
     endedge2 = triangles[darksecurity][1][3:]
 
     if darksecurity == 'CHFJPY':
-        order.addTrade("USDCHF", True, quantity, edges['USDCHF'])
-        order.addTrade("USDJPY", False, quantity, edges['JPYUSD'])
+        order.addTrade("USDCHF", True, quantity, bbos['USDCHF'])
+        order.addTrade("USDJPY", False, quantity, bbos['JPYUSD'])
     else:
-        order.addTrade(triangles[darksecurity][0], is_buy, quantity, edges[endedge1 + startedge1])
-        order.addTrade(triangles[darksecurity][1], is_buy, quantity, edges[endedge2 + startedge2])
+        order.addTrade(triangles[darksecurity][0], is_buy, quantity, bbos[endedge1 + startedge1])
+        order.addTrade(triangles[darksecurity][1], is_buy, quantity, bbos[endedge2 + startedge2])
 
 
 def respond_dark_completion_sell(darksecurity, is_buy, quantity, order):
     "Responds to a dark currency being sold by buying the other two sides of the triangle"
 
     if darksecurity == 'CHFJPY':
-        order.addTrade("USDCHF", False, quantity, edges['CHFUSD'])
-        order.addTrade("USDJPY", True, quantity, edges['USDJPY'])
+        order.addTrade("USDCHF", False, quantity, bbos['CHFUSD'])
+        order.addTrade("USDJPY", True, quantity, bbos['USDJPY'])
     else:
-        order.addTrade(triangles[darksecurity][0], is_buy, quantity, edges[triangles[darksecurity][0]])
-        order.addTrade(triangles[darksecurity][1], is_buy, quantity, edges[triangles[darksecurity][1]])
+        order.addTrade(triangles[darksecurity][0], is_buy, quantity, bbos[triangles[darksecurity][0]])
+        order.addTrade(triangles[darksecurity][1], is_buy, quantity, bbos[triangles[darksecurity][1]])
 
 
 def reactOnTrade(msg, order):
     global orderbook
     global openorders
-    # print(msg)
 
     for trade in msg["trades"]:
         buyid = "arbitrary"
