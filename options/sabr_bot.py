@@ -15,6 +15,9 @@ import sys
 
 import random
 
+class BadStrikeError(Exception):
+    pass
+
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
@@ -113,12 +116,10 @@ class SABR_Bot(Generic_Bot):
                 order.reserve(2)
                 if self.current_sabr_delta > self.delta_hedge_cutoff:
                     size = int(self.current_sabr_delta - self.delta_hedge_cutoff)
-                    self.addSell(order, ticker_lib.futures, size, 80) # market sell
-                    self.current_sabr_delta -= size
+                    token = self.addSell(order, ticker_lib.futures, size, 80) # market sell
                 elif self.current_sabr_delta < -self.delta_hedge_cutoff:
                     size = -int(self.current_sabr_delta - self.delta_hedge_cutoff)
-                    self.addBuy(order, ticker_lib.futures, size, 120) # market buy
-                    self.current_sabr_delta += size
+                    token = self.addBuy(order, ticker_lib.futures, size, 120) # market buy
         except utils.BorrowError:
             print 'borrow error when hedging,', int(clock.monotonic() * 1000), 'ms'
             raise
@@ -136,6 +137,8 @@ class SABR_Bot(Generic_Bot):
             try:
                 r = 0.25
                 self.atm_vol = self.at_money_vol() * r + (1 - r) * self.atm_vol
+            except BadStrikeError:
+                pass
             except KeyError:
                 print 'No spot price yet:'
                 print sys.exc_info()
@@ -186,7 +189,7 @@ class SABR_Bot(Generic_Bot):
                 if bid > fair * (1 + self.min_taking_edge):
                     size = int(self.order_size_mult)
                     order.reserve_active(1)
-                    self.addTrade(order, ticker, False, size, fair * (1 + self.min_taking_edge))
+                    token = self.addSell(order, ticker, size, fair * (1 + self.min_taking_edge))
                     self.current_sabr_delta -= trade_sabr_delta*size
                     self.current_sabr_vega -= trade_sabr_vega*size
                     self.current_sabr_gamma -= trade_sabr_gamma*size
@@ -199,7 +202,7 @@ class SABR_Bot(Generic_Bot):
                 if ask < fair / (1 + self.min_taking_edge):
                     size = int(self.order_size_mult)
                     order.reserve_active(1)
-                    self.addTrade(order, ticker, True, size, fair * (1 - self.min_taking_edge))
+                    token = self.addBuy(order, ticker, size, fair * (1 - self.min_taking_edge))
                     print 'buying', size, ticker, 'for', fair * (1 - self.min_taking_edge)
                     self.current_sabr_delta += trade_sabr_delta*size
                     self.current_sabr_vega += trade_sabr_vega*size
@@ -278,6 +281,7 @@ class SABR_Bot(Generic_Bot):
         if not (80 <= K <= 120):
             print 'WARNING: NO OPTIONS WITH STRIKE PRICE', K
             K = np.clip(K, 80, 120)
+            raise BadStrikeError
 
         K0 = int(math.floor(K))
         K1 = int(math.ceil(K))

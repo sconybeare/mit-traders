@@ -7,7 +7,7 @@ import monotonic as clock
 import multiprocessing as mp
 
 class SabrPricer(object):
-    def __init__(self, beta=0.6):
+    def __init__(self, beta=0.3):
         self.model = SabrModelWrapper(beta)
 
     def refit_model(self):

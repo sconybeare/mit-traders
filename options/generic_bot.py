@@ -2,7 +2,6 @@ import ticker_lib
 import copy
 import collections
 import monotonic as clock
-import bot_config
 import utils
 
 class Generic_Bot(object):
@@ -84,12 +83,8 @@ class Generic_Bot(object):
             except utils.BorrowError:
                 self.schedule_delay(wrapper, self.cancel_retry_period)
 
-    def cancel_order(self, order, token, delay=1.0):
-        if token in active_order_ids:
-            oid = active_order_ids[token]
-            self.cancel_active_order(order, token, oid)
-        else:
-            self.tokens_to_cancel.add(token)
+    def cancel_order(self, order, token):
+        self.tokens_to_cancel.add(token)
 
     def onMarketUpdate(self, internal_msg, order):
         market_state = internal_msg['market_state']
