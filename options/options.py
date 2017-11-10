@@ -4,7 +4,7 @@ import utils
 
 import config
 
-t = tt.TradersBot(host=config.host, id=config.id, password=config.password))
+t = tt.TradersBot(host=config.host, id=config.id, password=config.password)
 
 rate_limiter = utils.RateLimiter(90, 1.523) # fudge factor deliberately not divisible by polling rate, and we limit to 20 just to be safe
 scheduler = utils.Scheduler()
