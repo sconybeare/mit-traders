@@ -71,17 +71,18 @@ def market_update(msg, order):
     elif index == 'USDCAD':
         open_dark_order('EURCAD', order, .11)
 
-    # delete open orders after 2.5 seconds...too many orders
+    # clean open orders
     deletedorders = []
-    for everyorder in openorders:
-        if openorders[everyorder][0]['ticker'] in darktickers:
-            if (time.time() - openorders[everyorder][1]) > 2.0:
-                order.addCancel(openorders[everyorder][0]['ticker'], openorders[everyorder][0]['order_id'])
-                deletedorders.append(everyorder)
+    for elem in openorders:
+        if openorders[elem][0]['ticker'] in darktickers:
+            if (time.time() - openorders[elem][1]) > 2.0:
+                order.addCancel(openorders[elem][0]['ticker'], openorders[elem][0]['order_id'])
+                deletedorders.append(elem)
         else:
-            if (time.time() - openorders[everyorder][1]) > 4:
-                order.addCancel(openorders[everyorder][0]['ticker'], openorders[everyorder][0]['order_id'])
-                deletedorders.append(everyorder)
+            if (time.time() - openorders[elem][1]) > 4.0:
+                order.addCancel(openorders[elem][0]['ticker'], openorders[elem][0]['order_id'])
+                order.addTrade(openorders[elem][0]['ticker'], openorders[elem][0]['buy'],openorders[elem][0]['quantity'])
+                deletedorders.append(elem)
 
     for i in deletedorders:
         del openorders[i]
@@ -91,7 +92,6 @@ def market_update(msg, order):
 
 def update_springs():
     print("update springs")
-
 
 
 def update_dark_edges(darksecurity, order):
@@ -189,7 +189,7 @@ def reactOnTrade(msg, order):
             pass  # just so things run for now...
 
 
-def acknowledgedOrders(msg, order):
+def acknowledged_orders(msg, order):
     global openorders
 
     if 'orders' in msg:
@@ -209,5 +209,8 @@ def verify_trader_state(msg, order):
 
 t.onMarketUpdate = market_update
 t.onTraderUpdate = verify_trader_state
+t.onAckModifyOrders = acknowledged_orders
 t.run()
 
+# u'positions': {u'EURJPY': 0, u'CHFJPY': -200, u'USDCHF': 0, u'EURCHF': 0, u'EURCAD': 0, u'EURUSD': 0, u'USDJPY': 0, u'USDCAD': 0}
+# u'cash': {u'JPY': 22622, u'EUR': 0, u'USD': 100000, u'CHF': -200, u'CAD': 0}
