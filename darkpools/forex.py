@@ -85,7 +85,6 @@ def market_update(msg, order):
         else:
             if (time.time() - openorders[elem][1]) > 4.0:
                 order.addCancel(openorders[elem][0]['ticker'], openorders[elem][0]['order_id'])
-                order.addTrade(openorders[elem][0]['ticker'], openorders[elem][0]['buy'],openorders[elem][0]['quantity'])
                 deletedorders.append(elem)
 
     for i in deletedorders:
@@ -93,7 +92,7 @@ def market_update(msg, order):
 
     update_springs()
     update_fairs()
-    provide_liquidity(order, 100, 15)
+    #provide_liquidity(order, 100, 15)
 
 
 def update_springs():
