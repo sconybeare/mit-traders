@@ -28,7 +28,7 @@ triangles = {'EURCHF': ('USDCHF', 'EURUSD'), 'EURCAD': ('USDCAD', 'EURUSD'),
 openorders = {}
 
 # spring constants for the bias towards USD
-springs = {'CAD': 1, 'EUR': 1, 'CHF': 1, 'JPY': 1}
+springs = {'CAD': 1, 'EUR': 1, 'CHF': 1, 'JPY': 1, "bad_val": 1}
 
 fairs = {'USDCAD': 0, 'EURUSD': 0, 'USDCHF': 0, 'USDJPY': 0, 'EURCAD': 0, 'EURJPY': 0, 'EURCHF': 0, 'CHFJPY': 0}
 
@@ -99,7 +99,11 @@ def update_springs():
 
 def update_fairs():
     for key in tickers:
-        spring = key.replace("USD", "")
+        if "USD" not in key:
+            spring = "bad_val"
+        else:
+            spring = key.replace("USD", "")
+
         if bbos[key] != 0 and bbos[key[3:]+key[:3]] != 0:
             fairs[key] = ((bbos[key] + bbos[key[3:]+key[:3]]) / 2) * springs[spring]
         elif bbos[key] != 0:
