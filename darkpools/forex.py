@@ -3,6 +3,7 @@ import time
 
 t = tradersbot.TradersBot('127.0.0.1', 'trader0', 'trader0')
 tickers = ['USDCAD', 'EURUSD', 'USDCHF', 'USDJPY', 'EURCAD', 'EURJPY', 'EURCHF', 'CHFJPY']
+currencies = ['USD', 'EUR', 'CAD', 'CHF', 'JPY']
 print("starting")
 
 # the book as we know it
@@ -95,7 +96,17 @@ def market_update(msg, order):
 
 
 def update_springs():
-    print("update springs")
+    diminishing_term = 50
+    for currency in traderstate[u'cash']:
+        if currency == 'USD':
+            continue
+        if currency == "JPY":
+            factor = 100
+        else:
+            factor = 1
+
+        factor = (traderstate[u'cash'][currency] / (factor * 100000))
+        springs[currency] = 1 - (factor / diminishing_term)
 
 
 def update_fairs():
@@ -219,6 +230,12 @@ def acknowledged_orders(msg, order):
             openorders[elem['order_id']] = elem, time.time()
 
 
+def provide_liquidity(order, quantity):
+    for elem in tickers:
+        order.addTrade(elem, False, quantity, fairs[elem] )
+        order.addTrade(elem, True, quantity, fairs[elem])
+
+
 def verify_trader_state(msg, order):
     print(msg)
     global traderstate
@@ -233,5 +250,3 @@ t.onTrade = reactOnTrade
 t.onAckModifyOrders = acknowledged_orders
 t.run()
 
-# u'positions': {u'EURJPY': 0, u'CHFJPY': -200, u'USDCHF': 0, u'EURCHF': 0, u'EURCAD': 0, u'EURUSD': 0, u'USDJPY': 0, u'USDCAD': 0}
-# u'cash': {u'JPY': 22622, u'EUR': 0, u'USD': 100000, u'CHF': -200, u'CAD': 0}
