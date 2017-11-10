@@ -98,7 +98,7 @@ def update_springs():
 
 
 def update_fairs():
-    for key in bbos:
+    for key in tickers:
         spring = key.replace("USD", "")
         if bbos[key] != 0 and bbos[key[3:]+key[:3]] != 0:
             fairs[key] = ((bbos[key] + bbos[key[3:]+key[:3]]) / 2) * springs[spring]
