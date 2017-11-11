@@ -96,7 +96,7 @@ def market_update(msg, order):
 
 
 def update_springs():
-    diminishing_term = 50
+    diminishing_term = 10
     for currency in traderstate[u'cash']:
         if currency == 'USD':
             continue
