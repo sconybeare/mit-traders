@@ -1,7 +1,7 @@
 import tradersbot
 import time
 
-t = tradersbot.TradersBot('127.0.0.1', 'trader0', 'trader0')
+t = tradersbot.TradersBot('34.207.157.86', 'Illinois1', '6790287764')
 tickers = ['USDCAD', 'EURUSD', 'USDCHF', 'USDJPY', 'EURCAD', 'EURJPY', 'EURCHF', 'CHFJPY']
 currencies = ['USD', 'EUR', 'CAD', 'CHF', 'JPY']
 print("starting")
