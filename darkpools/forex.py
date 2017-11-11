@@ -237,7 +237,11 @@ def provide_liquidity(order, quantity, spread):
 
 
 def verify_trader_state(msg, order):
-    print(msg)
+    try:
+	print "PNL: ", msg['trader_state']['pnl']
+    except KeyError:
+	print 'panic, no pnl in trader update' 
+
     global traderstate
 
     for elem in msg["trader_state"]:
