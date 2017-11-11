@@ -35,6 +35,7 @@ fairs = {'USDCAD': 0, 'EURUSD': 0, 'USDCHF': 0, 'USDJPY': 0, 'EURCAD': 0, 'EURJP
          'CADUSD': 0, 'USDEUR': 0, 'CHFUSD': 0, 'JPYUSD': 0, 'CADEUR': 0, 'JPYEUR': 0, 'CHFEUR': 0, 'JPYCHF': 0}
 
 def market_update(msg, order):
+    print("market update")
     global orderbook
     global openorders
 
@@ -63,27 +64,27 @@ def market_update(msg, order):
 
 
     if index == "USDCHF":
-        open_dark_order('EURCHF', order, .15)
+        open_dark_order('EURCHF', order, .15/10)
 
     elif index == "EURUSD":
-        open_dark_order('EURJPY', order, .95)
+        open_dark_order('EURJPY', order, .95/12)
 
     elif index == 'USDJPY':
-        open_dark_order('CHFJPY', order, 1.2)
+        open_dark_order('CHFJPY', order, 1.2/12)
 
     elif index == 'USDCAD':
-        open_dark_order('EURCAD', order, .1)
+        open_dark_order('EURCAD', order, .1/10)
 
 
     # clean open orders
     deletedorders = []
     for elem in openorders:
         if openorders[elem][0]['ticker'] in darktickers:
-            if (time.time() - openorders[elem][1]) > 2.0:
+            if (time.time() - openorders[elem][1]) > 1.0:
                 order.addCancel(openorders[elem][0]['ticker'], openorders[elem][0]['order_id'])
                 deletedorders.append(elem)
         else:
-            if (time.time() - openorders[elem][1]) > 4.0:
+            if (time.time() - openorders[elem][1]) > 2.0:
                 order.addCancel(openorders[elem][0]['ticker'], openorders[elem][0]['order_id'])
                 deletedorders.append(elem)
 
@@ -147,7 +148,7 @@ def open_dark_order(darksecurity, order, spread):
 
 def respond_dark_completion_buy(darksecurity, is_buy, quantity, order):
     "Responds to a dark currency being bought by selling the other two sides of the triangle"
-
+    print("trade offered")
     startedge1 = triangles[darksecurity][0][:3]
     endedge1 = triangles[darksecurity][0][3:]
     startedge2 = triangles[darksecurity][1][:3]
@@ -180,6 +181,8 @@ def reactOnTrade(msg, order):
         buyid = "arbitrary"
         sellid = "arbitrary"
         ticker = trade["ticker"]
+        if ticker in darktickers:
+            print ("FILLED", trade)
         price = trade["price"]
         quantity = trade["quantity"]
         if 'buy_order_id' in trade:
@@ -237,11 +240,6 @@ def provide_liquidity(order, quantity, spread):
 
 
 def verify_trader_state(msg, order):
-    try:
-	print "PNL: ", msg['trader_state']['pnl']
-    except KeyError:
-	print 'panic, no pnl in trader update' 
-
     global traderstate
 
     for elem in msg["trader_state"]:
